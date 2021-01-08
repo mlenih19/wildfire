@@ -46,7 +46,7 @@ cf.go_offline()
 
 
 #Set working directory
-os.chdir('/Users/marie/Desktop/projekt/')
+os.chdir('/Users/marie/Desktop/github/projekt/')
 
 
 #NDVI creation and export
@@ -83,23 +83,32 @@ with rasterio.open(l5_ndvi_outpath, 'w', **l5_meta) as dst:
 
 #Load and analyze wildfire data
 pd.set_option('display.max_columns', None)
-wfdf=gpd.read_file('wildfire_all_1980_2016_gdb/wf_1981_2010_ut_bb.shp')
+wfdf=gpd.read_file('wildfire_gdb/wf_1981_2010_ut_bb.shp')
 wfdf.head()
 wfdf.info()
-wfdf.drop(wfdf.columns[[1, 2, 3, 4, 5, 6, 7, 9, 11, 13, 14, 15, 16, 17, 19, 20, 21, 22, 23, 24,
+wfdf.drop(wfdf.columns[[1, 2, 3, 4, 5, 6, 7, 9, 11, 13, 14, 15, 17, 19, 20, 21, 22, 23, 24,
                         25, 29, 30, 31, 32, 33, 34, 35]], axis=1, inplace=True)
 wfdf.head()
-sns.heatmap(wfdf.isnull(), yticklabels=False, cbar=True, cmap='viridis')
+sns.heatmap(wfdf.isnull(), yticklabels=False, cbar=True, cmap='mako')
 wfdf.dropna(inplace=True)
-sns.heatmap(wfdf.isnull(), yticklabels=False, cbar=False, cmap='viridis')
+sns.heatmap(wfdf.isnull(), yticklabels=False, cbar=False, cmap='mako')
 
 
 #Visualize original data and variable correlation
-wfdf.drop(['ORGANIZATI'], axis=1, inplace=True)
+viz_df=pd.DataFrame(wfdf)
+viz_df['SIZECLASSN'].plot.density(color='orangered')
+sns.jointplot(x='YEAR_',y='SIZECLASSN',data=viz_df, kind='kde', color='orangered')
+sns.violinplot(x='CAUSE', y='SIZECLASSN', data=viz_df, palette='YlOrRd')
+viz_df.iplot(kind='bar', x='ORGANIZATI', y='TOTALACRES', colors='orange')
+viz_df.iplot(kind='bubble', title='Wildfire Occurrences & Sizes, Utah County 1981-2010',
+             xTitle='Longitude', yTitle='Latitude', colors='orange',x='DLONGITUDE',
+             y='DLATITUDE', size='TOTALACRES')
+
+wfdf.drop(['ORGANIZATI', 'YEAR_'], axis=1, inplace=True)
 wfdf['Month']=pd.to_datetime(wfdf['STARTDATED'], format='%Y-%m-%d').dt.month
 wfdf.drop(['STARTDATED'], axis=1, inplace=True)
 wfdf.groupby('CAUSE').count()
-sns.countplot(x='CAUSE', data=wfdf, palette='Set2')
+sns.countplot(x='CAUSE', data=wfdf, palette='mako')
 pd.get_dummies(wfdf['CAUSE'])
 pd.get_dummies(wfdf['CAUSE'], drop_first=True)
 wfdf['CAUSE']=pd.get_dummies(wfdf['CAUSE'], drop_first=True)
@@ -108,19 +117,19 @@ sns.heatmap(wfdf.corr(), cmap='mako', annot=False)
 
 
 #Raster import and visualization with geometry
-elevation=rasterio.open('study_areas/utah/predictor_tifs/elev_ut_county.tif')
-slope=rasterio.open('study_areas/utah/predictor_tifs/slope_ut_county.tif')
-aspect=rasterio.open('study_areas/utah/predictor_tifs/aspect_ut_county.tif')
-landcover=rasterio.open('study_areas/utah/predictor_tifs/lc_ut_county.tif')
-domveg=rasterio.open('study_areas/utah/predictor_tifs/dv_ut_county.tif')
-ppt=rasterio.open('study_areas/utah/predictor_tifs/ppt_ut_county.tif')
-tmax=rasterio.open('study_areas/utah/predictor_tifs/tmax_ut_county.tif')
-tmean=rasterio.open('study_areas/utah/predictor_tifs/tmean_ut_county.tif')
-tmin=rasterio.open('study_areas/utah/predictor_tifs/tmin_ut_county.tif')
-vpdmax=rasterio.open('study_areas/utah/predictor_tifs/vpdmax_ut_county.tif')
-vpdmin=rasterio.open('study_areas/utah/predictor_tifs/vpdmin_ut_county.tif')
-trails=rasterio.open('study_areas/utah/predictor_tifs/trails_buffer_bb_ut_county.tif')
-ndvi=rasterio.open('study_areas/utah/predictor_tifs/l5ndvi_ut_county.tif')
+elevation=rasterio.open('predictor_tifs/elev_ut_county.tif')
+slope=rasterio.open('predictor_tifs/slope_ut_county.tif')
+aspect=rasterio.open('predictor_tifs/aspect_ut_county.tif')
+landcover=rasterio.open('predictor_tifs/lc_ut_county.tif')
+domveg=rasterio.open('predictor_tifs/dv_ut_county.tif')
+ppt=rasterio.open('predictor_tifs/ppt_ut_county.tif')
+tmax=rasterio.open('predictor_tifs/tmax_ut_county.tif')
+tmean=rasterio.open('predictor_tifs/tmean_ut_county.tif')
+tmin=rasterio.open('predictor_tifs/tmin_ut_county.tif')
+vpdmax=rasterio.open('predictor_tifs/vpdmax_ut_county.tif')
+vpdmin=rasterio.open('predictor_tifs/vpdmin_ut_county.tif')
+trails=rasterio.open('predictor_tifs/trails_buffer_bb_ut_county.tif')
+ndvi=rasterio.open('predictor_tifs/l5ndvi_ut_county.tif')
 print(wfdf.crs)
 print(trails.crs)
 
@@ -176,23 +185,17 @@ wfdf.drop(['geometry'], axis=1, inplace=True)
 fig, ax = plt.subplots(figsize=(16,16))
 sns.heatmap(wfdf.corr(), cmap='mako', annot=True) 
 
-C=add_constant(wfdf)
-pd.Series([variance_inflation_factor(C.values, i)
-          for i in range(C.shape[1])],
-         index=C.columns)
+vif = pd.DataFrame()
+vif['VIF'] = [variance_inflation_factor(wfdf.values, i) for i in range(wfdf.shape[1])]
+vif['variable'] = wfdf.columns
+vif
 
-wfdf.drop(['Max Air Pressure', 'Mean Temp', 'Min Temp'], axis=1, inplace=True)
+wfdf.drop(['Min Air Pressure', 'Mean Temp', 'Min Temp'], axis=1, inplace=True)
 fig, ax = plt.subplots(figsize=(16,16))
 sns.heatmap(wfdf.corr(), cmap='mako', annot=True) 
 
 
 #Cause prediction
-sns.pairplot(data=wfdf,
-            y_vars=['Dominant Vegetation','Precipitation', 'Max Temp', 'Min Air Pressure',
-                          'Slope', 'Landcover', 'NDVI', 'Elevation'],
-            x_vars=['Dominant Vegetation','Precipitation', 'Max Temp', 'Min Air Pressure',
-                          'Slope', 'Landcover', 'NDVI', 'Elevation'])
-                          
 wfdf_cause=wfdf
 wfdf_cause.reset_index(drop=True)
 cols_at_end=['CAUSE']
@@ -222,14 +225,15 @@ for i in range(1, 50):
     error.append(np.mean(pred_i !=y_test)) 
 
 plt.figure(figsize=(10,6))
-plt.plot(range(1,50), error,color='blue', ls=':', marker='o', markerfacecolor='red', markersize=10)
+plt.plot(range(1,50), error, color='blue', ls=':', marker='o', markerfacecolor='red', markersize=10)
 plt.title('Error Rate vs. K Value')
 plt.xlabel('K')
 plt.ylabel('Error Rate')
 
-knn=KNeighborsClassifier(n_neighbors=8)
+knn=KNeighborsClassifier(n_neighbors=10)
 knn.fit(X_train, y_train)
 pred=knn.predict(X_test)
+
 print(confusion_matrix(y_test, pred))
 print('\n')
 print(classification_report(y_test, pred))
@@ -332,7 +336,7 @@ plt.title('Error Rate vs. K Value')
 plt.xlabel('K')
 plt.ylabel('Error Rate')
 
-knn=KNeighborsClassifier(n_neighbors=17)
+knn=KNeighborsClassifier(n_neighbors=11)
 knn.fit(X_train, y_train)
 pred=knn.predict(X_test)
 
@@ -377,7 +381,7 @@ print(classification_report(y_test, svm_pred2))
 #Presence/absence prediction
 wfdf_pa=wfdf[['DLATITUDE', 'DLONGITUDE']]
 wfdf_pa['Wildfire']=1
-wfdf_pa2=gpd.read_file('wildfire_all_1980_2016_gdb/wf_all_1981_2010_ut_bb_1600.shp')
+wfdf_pa2=gpd.read_file('wildfire_gdb/wf_all_1981_2010_ut_bb_1600.shp')
 wfdf_pa2.drop(['CID','geometry'], axis=1, inplace=True)
 wfdf_pa2['Wildfire']=0
 frames=[wfdf_pa, wfdf_pa2]
@@ -390,7 +394,7 @@ pa['Landcover']=[x[0] for x in landcover.sample(coords)]
 pa['Dominant Vegetation']=[x[0] for x in domveg.sample(coords)]
 pa['Precipitation']=[x[0] for x in ppt.sample(coords)]
 pa['Max Temp']=[x[0] for x in tmax.sample(coords)]
-pa['Min Air Pressure']=[x[0] for x in vpdmin.sample(coords)]
+pa['Max Air Pressure']=[x[0] for x in vpdmin.sample(coords)]
 pa['Trails']=[x[0] for x in trails.sample(coords)]
 pa['NDVI']=[x[0] for x in ndvi.sample(coords)]
 
@@ -466,23 +470,18 @@ print('\n')
 print(classification_report(y_test, grid_pred))
 
 fig, ax=plt.subplots(figsize=(10,10))
-
 y_pred_prob_knn=knn.predict_proba(X_test)[:,1]
 fpr1, tpr1, threshold1=metrics.roc_curve(y_test, y_pred_prob_knn)
 roc_auc1=metrics.auc(fpr1, tpr1)
-
 y_pred_prob_dt=dt.predict_proba(X_test)[:,1]
 fpr2, tpr2, threshold2=metrics.roc_curve(y_test, y_pred_prob_dt)
 roc_auc2=metrics.auc(fpr2, tpr2)
-
 y_pred_prob_rf=rf.predict_proba(X_test)[:,1]
 fpr3, tpr3, threshold3=metrics.roc_curve(y_test, y_pred_prob_rf)
 roc_auc3=metrics.auc(fpr3, tpr3)
-
 y_pred_prob_svm=grid.predict_proba(X_test)[:,1]
 fpr4, tpr4, threshold4=metrics.roc_curve(y_test, y_pred_prob_svm)
 roc_auc4=metrics.auc(fpr4, tpr4)
-
 plt.plot(fpr1, tpr1, 'b', label='KNN AUC = %0.2f' %roc_auc1, color='blue')
 plt.plot(fpr2, tpr2, 'b', label='DT AUC = %0.2f' %roc_auc2, color='orange')
 plt.plot(fpr3, tpr3, 'b', label='RF AUC = %0.2f' %roc_auc3, color='green')
